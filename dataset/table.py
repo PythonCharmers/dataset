@@ -223,7 +223,8 @@ class Table(object):
         clause = self._args_to_clause(args)
         if not len(row):
             return self.count(clause)
-        stmt = self.table.update(whereclause=clause, values=row)
+        # stmt = self.table.update(whereclause=clause, values=row)
+        stmt = self.table.update().where(clause).values(row)
         # rp = self.db.executable.execute(stmt)
         conn = self.db.executable
         with conn.begin():
@@ -261,9 +262,14 @@ class Table(object):
             # Update when chunk_size is fulfilled or this is the last row
             if len(chunk) == chunk_size or index == len(rows) - 1:
                 cl = [self.table.c[k] == bindparam("_%s" % k) for k in keys]
-                stmt = self.table.update(
-                    whereclause=and_(True, *cl),
-                    values={col: bindparam(col, required=False) for col in columns},
+                # stmt = self.table.update(
+                #     whereclause=and_(True, *cl),
+                #     values={col: bindparam(col, required=False) for col in columns},
+                # )
+                stmt = self.table.update().where(
+                    and_(True, *cl)
+                ).values(
+                    {col: bindparam(col, required=False) for col in columns}
                 )
                 # self.db.executable.execute(stmt, chunk)
                 conn = self.db.executable
@@ -316,7 +322,7 @@ class Table(object):
         if not self.exists:
             return False
         clause = self._args_to_clause(filters, clauses=clauses)
-        stmt = self.table.delete(whereclause=clause)
+        stmt = self.table.delete().where(clause)
         # rp = self.db.executable.execute(stmt)
         conn = self.db.executable
         with conn.begin():
@@ -745,12 +751,13 @@ class Table(object):
         if not len(columns):
             return iter([])
 
-        q = expression.select(
-            columns,
-            distinct=True,
-            whereclause=clause,
-            order_by=[c.asc() for c in columns],
-        )
+        # q = expression.select(
+        #     columns,
+        #     distinct=True,
+        #     whereclause=clause,
+        #     order_by=[c.asc() for c in columns],
+        # )
+        q = select(*columns).distinct().where(clause).order_by(*(c.asc() for c in columns))
         return self.db.query(q)
 
     # Legacy methods for running find queries.
