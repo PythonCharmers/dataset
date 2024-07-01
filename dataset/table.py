@@ -50,6 +50,10 @@ class Table(object):
         self._auto_create = auto_create
 
     @property
+    def conn(self):
+        return self.db.executable
+
+    @property
     def exists(self):
         """Check to see if the table currently exists in the database."""
         if self._table is not None:
@@ -116,7 +120,14 @@ class Table(object):
         Returns the inserted row's primary key.
         """
         row = self._sync_columns(row, ensure, types=types)
-        res = self.db.executable.execute(self.table.insert(row))
+        # res = self.db.executable.execute(self.table.insert(row))
+        stmt = self.table.insert().values(row)
+        conn = self.db.executable
+        if not conn.in_transaction():
+            with conn.begin():
+                res = conn.execute(stmt)
+        else:
+            res = conn.execute(stmt)
         if len(res.inserted_primary_key) > 0:
             return res.inserted_primary_key[0]
         return True
@@ -174,6 +185,8 @@ class Table(object):
         # Get columns name list to be used for padding later.
         columns = sync_row.keys()
 
+        stmt = self.table.insert()
+
         chunk = []
         for index, row in enumerate(rows):
             chunk.append(row)
@@ -181,7 +194,11 @@ class Table(object):
             # Insert when chunk_size is fulfilled or this is the last row
             if len(chunk) == chunk_size or index == len(rows) - 1:
                 chunk = pad_chunk_columns(chunk, columns)
-                self.table.insert().execute(chunk)
+                # self.table.insert().execute(chunk)
+                # self.db.executable.execute(stmt, chunk)
+                conn = self.db.executable
+                with conn.begin():
+                    conn.execute(stmt, chunk)
                 chunk = []
 
     def update(self, row, keys, ensure=None, types=None, return_count=False):
@@ -207,7 +224,10 @@ class Table(object):
         if not len(row):
             return self.count(clause)
         stmt = self.table.update(whereclause=clause, values=row)
-        rp = self.db.executable.execute(stmt)
+        # rp = self.db.executable.execute(stmt)
+        conn = self.db.executable
+        with conn.begin():
+            rp = conn.execute(stmt)
         if rp.supports_sane_rowcount():
             return rp.rowcount
         if return_count:
@@ -245,7 +265,10 @@ class Table(object):
                     whereclause=and_(True, *cl),
                     values={col: bindparam(col, required=False) for col in columns},
                 )
-                self.db.executable.execute(stmt, chunk)
+                # self.db.executable.execute(stmt, chunk)
+                conn = self.db.executable
+                with conn.begin():
+                    conn.execute(stmt, chunk)
                 chunk = []
 
     def upsert(self, row, keys, ensure=None, types=None):
@@ -294,7 +317,10 @@ class Table(object):
             return False
         clause = self._args_to_clause(filters, clauses=clauses)
         stmt = self.table.delete(whereclause=clause)
-        rp = self.db.executable.execute(stmt)
+        # rp = self.db.executable.execute(stmt)
+        conn = self.db.executable
+        with conn.begin():
+            rp = conn.execute(stmt)
         return rp.rowcount > 0
 
     def _reflect_table(self):
@@ -303,7 +329,7 @@ class Table(object):
             self._columns = None
             try:
                 self._table = SQLATable(
-                    self.name, self.db.metadata, schema=self.db.schema, autoload=True
+                    self.name, self.db.metadata, schema=self.db.schema, autoload_with=self.db.executable
                 )
             except NoSuchTableError:
                 self._table = None
@@ -345,15 +371,20 @@ class Table(object):
                 for column in columns:
                     if not column.name == self._primary_id:
                         self._table.append_column(column)
-                self._table.create(self.db.executable, checkfirst=True)
+                # self._table.create(self.db.executable, checkfirst=True)
+                conn = self.db.executable
+                with conn.begin():
+                    self._table.create(conn, checkfirst=True)
                 self._columns = None
         elif len(columns):
             with self.db.lock:
                 self._reflect_table()
                 self._threading_warn()
-                for column in columns:
-                    if not self.has_column(column.name):
-                        self.db.op.add_column(self.name, column, schema=self.db.schema)
+                conn = self.db.executable
+                with conn.begin():
+                    for column in columns:
+                        if not self.has_column(column.name):
+                            self.db.op.add_column(self.name, column, schema=self.db.schema)
                 self._reflect_table()
 
     def _sync_columns(self, row, ensure, types=None):
@@ -520,7 +551,10 @@ class Table(object):
         with self.db.lock:
             if self.exists:
                 self._threading_warn()
-                self.table.drop(self.db.executable, checkfirst=True)
+                # self.table.drop(self.db.executable, checkfirst=True)
+                conn = self.db.executable
+                with conn.begin():
+                    self.table.drop(conn, checkfirst=True)
                 self._table = None
                 self._columns = None
                 self.db._tables.pop(self.name, None)
@@ -581,7 +615,11 @@ class Table(object):
                 kw["mysql_length"] = mysql_length
 
                 idx = Index(name, *columns, **kw)
-                idx.create(self.db.executable)
+                # idx.create(self.db.executable)
+                conn = self.db.executable
+                with conn.begin():
+                    idx.create(conn)
+
 
     def find(self, *_clauses, **kwargs):
         """Perform a simple search on the table.
@@ -625,7 +663,8 @@ class Table(object):
 
         order_by = self._args_to_order_by(order_by)
         args = self._args_to_clause(kwargs, clauses=_clauses)
-        query = self.table.select(whereclause=args, limit=_limit, offset=_offset)
+        # query = self.table.select(whereclause=args, limit=_limit, offset=_offset)
+        query = self.table.select().where(args).limit(_limit).offset(_offset)
         if len(order_by):
             query = query.order_by(*order_by)
 
@@ -666,9 +705,12 @@ class Table(object):
             return 0
 
         args = self._args_to_clause(kwargs, clauses=_clauses)
-        query = select([func.count()], whereclause=args)
-        query = query.select_from(self.table)
-        rp = self.db.executable.execute(query)
+        # query = select([func.count()], whereclause=args)
+        # query = query.select_from(self.table)
+        query = select(func.count()).select_from(self.table).where(args)
+        conn = self.db.executable
+        with conn.begin():
+            rp = conn.execute(query)
         return rp.fetchone()[0]
 
     def __len__(self):
