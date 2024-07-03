@@ -123,11 +123,7 @@ class Table(object):
         # res = self.db.executable.execute(self.table.insert(row))
         stmt = self.table.insert().values(row)
         conn = self.db.executable
-        if not conn.in_transaction():
-            with conn.begin():
-                res = conn.execute(stmt)
-        else:
-            res = conn.execute(stmt)
+        res = conn.execute(stmt)
         if len(res.inserted_primary_key) > 0:
             return res.inserted_primary_key[0]
         return True
@@ -197,8 +193,7 @@ class Table(object):
                 # self.table.insert().execute(chunk)
                 # self.db.executable.execute(stmt, chunk)
                 conn = self.db.executable
-                with conn.begin():
-                    conn.execute(stmt, chunk)
+                conn.execute(stmt, chunk)
                 chunk = []
 
     def update(self, row, keys, ensure=None, types=None, return_count=False):
@@ -227,8 +222,7 @@ class Table(object):
         stmt = self.table.update().where(clause).values(row)
         # rp = self.db.executable.execute(stmt)
         conn = self.db.executable
-        with conn.begin():
-            rp = conn.execute(stmt)
+        rp = conn.execute(stmt)
         if rp.supports_sane_rowcount():
             return rp.rowcount
         if return_count:
@@ -273,8 +267,7 @@ class Table(object):
                 )
                 # self.db.executable.execute(stmt, chunk)
                 conn = self.db.executable
-                with conn.begin():
-                    conn.execute(stmt, chunk)
+                conn.execute(stmt, chunk)
                 chunk = []
 
     def upsert(self, row, keys, ensure=None, types=None):
@@ -325,8 +318,7 @@ class Table(object):
         stmt = self.table.delete().where(clause)
         # rp = self.db.executable.execute(stmt)
         conn = self.db.executable
-        with conn.begin():
-            rp = conn.execute(stmt)
+        rp = conn.execute(stmt)
         return rp.rowcount > 0
 
     def _reflect_table(self):
@@ -379,18 +371,16 @@ class Table(object):
                         self._table.append_column(column)
                 # self._table.create(self.db.executable, checkfirst=True)
                 conn = self.db.executable
-                with conn.begin():
-                    self._table.create(conn, checkfirst=True)
+                self._table.create(conn, checkfirst=True)
                 self._columns = None
         elif len(columns):
             with self.db.lock:
                 self._reflect_table()
                 self._threading_warn()
                 conn = self.db.executable
-                with conn.begin():
-                    for column in columns:
-                        if not self.has_column(column.name):
-                            self.db.op.add_column(self.name, column, schema=self.db.schema)
+                for column in columns:
+                    if not self.has_column(column.name):
+                        self.db.op.add_column(self.name, column, schema=self.db.schema)
                 self._reflect_table()
 
     def _sync_columns(self, row, ensure, types=None):
@@ -559,8 +549,7 @@ class Table(object):
                 self._threading_warn()
                 # self.table.drop(self.db.executable, checkfirst=True)
                 conn = self.db.executable
-                with conn.begin():
-                    self.table.drop(conn, checkfirst=True)
+                self.table.drop(conn, checkfirst=True)
                 self._table = None
                 self._columns = None
                 self.db._tables.pop(self.name, None)
@@ -623,8 +612,7 @@ class Table(object):
                 idx = Index(name, *columns, **kw)
                 # idx.create(self.db.executable)
                 conn = self.db.executable
-                with conn.begin():
-                    idx.create(conn)
+                idx.create(conn)
 
 
     def find(self, *_clauses, **kwargs):
@@ -715,8 +703,7 @@ class Table(object):
         # query = query.select_from(self.table)
         query = select(func.count()).select_from(self.table).where(args)
         conn = self.db.executable
-        with conn.begin():
-            rp = conn.execute(query)
+        rp = conn.execute(query)
         return rp.fetchone()[0]
 
     def __len__(self):
@@ -777,4 +764,4 @@ class Table(object):
 
     def __repr__(self):
         """Get table representation."""
-        return "<Table(%s)>" % self.table.name
+        return "<Table(%s)>" % self.name
