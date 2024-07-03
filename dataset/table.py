@@ -123,7 +123,8 @@ class Table(object):
         # res = self.db.executable.execute(self.table.insert(row))
         stmt = self.table.insert().values(row)
         conn = self.db.executable
-        res = conn.execute(stmt)
+        with conn.begin_nested():
+            res = conn.execute(stmt)
         if len(res.inserted_primary_key) > 0:
             return res.inserted_primary_key[0]
         return True
@@ -193,8 +194,9 @@ class Table(object):
                 # self.table.insert().execute(chunk)
                 # self.db.executable.execute(stmt, chunk)
                 conn = self.db.executable
-                conn.execute(stmt, chunk)
-                chunk = []
+                with conn.begin_nested():
+                    conn.execute(stmt, chunk)
+                    chunk = []
 
     def update(self, row, keys, ensure=None, types=None, return_count=False):
         """Update a row in the table.
@@ -222,7 +224,8 @@ class Table(object):
         stmt = self.table.update().where(clause).values(row)
         # rp = self.db.executable.execute(stmt)
         conn = self.db.executable
-        rp = conn.execute(stmt)
+        with conn.begin_nested():
+            rp = conn.execute(stmt)
         if rp.supports_sane_rowcount():
             return rp.rowcount
         if return_count:
@@ -267,8 +270,9 @@ class Table(object):
                 )
                 # self.db.executable.execute(stmt, chunk)
                 conn = self.db.executable
-                conn.execute(stmt, chunk)
-                chunk = []
+                with conn.begin_nested():
+                    conn.execute(stmt, chunk)
+                    chunk = []
 
     def upsert(self, row, keys, ensure=None, types=None):
         """An UPSERT is a smart combination of insert and update.
@@ -318,7 +322,8 @@ class Table(object):
         stmt = self.table.delete().where(clause)
         # rp = self.db.executable.execute(stmt)
         conn = self.db.executable
-        rp = conn.execute(stmt)
+        with conn.begin_nested():
+            rp = conn.execute(stmt)
         return rp.rowcount > 0
 
     def _reflect_table(self):
@@ -667,7 +672,9 @@ class Table(object):
             conn = self.db.engine.connect()
             conn = conn.execution_options(stream_results=True)
 
-        return ResultIter(conn.execute(query), row_type=self.db.row_type, step=_step)
+        with conn.begin_nested():
+            result = conn.execute(query)
+        return ResultIter(result, row_type=self.db.row_type, step=_step)
 
     def find_one(self, *args, **kwargs):
         """Get a single result from the table.
@@ -703,8 +710,9 @@ class Table(object):
         # query = query.select_from(self.table)
         query = select(func.count()).select_from(self.table).where(args)
         conn = self.db.executable
-        rp = conn.execute(query)
-        return rp.fetchone()[0]
+        with conn.begin_nested():
+            rp = conn.execute(query)
+            return rp.fetchone()[0]
 
     def __len__(self):
         """Return the number of rows in the table."""

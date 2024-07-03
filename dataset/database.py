@@ -141,10 +141,10 @@ class Database(object):
             # operations in transactions won't cause metadata to refresh any
             # more:
             # self._flush_tables()
-        else:
-            # EJS: There may be an implicit transaction created by SQLAlchemy's
-            # "autobegin" feature. If so, commit this:
-            self.executable.commit()
+        # else:
+        #     # EJS: There may be an implicit transaction created by SQLAlchemy's
+        #     # "autobegin" feature. If so, commit this:
+        #     self.executable.commit()
 
     def rollback(self):
         """Roll back the current transaction.
