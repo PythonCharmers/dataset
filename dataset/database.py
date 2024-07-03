@@ -127,7 +127,7 @@ class Database(object):
         """
         if not hasattr(self.local, "tx"):
             self.local.tx = []
-        self.local.tx.append(self.executable.begin())
+        self.local.tx.append(self.executable.begin_nested())
 
     def commit(self):
         """Commit the current transaction.
@@ -141,6 +141,10 @@ class Database(object):
             # operations in transactions won't cause metadata to refresh any
             # more:
             # self._flush_tables()
+        else:
+            # EJS: There may be an implicit transaction created by SQLAlchemy's
+            # "autobegin" feature. If so, commit this:
+            self.executable.commit()
 
     def rollback(self):
         """Roll back the current transaction.
@@ -245,7 +249,11 @@ class Database(object):
                     primary_increment=primary_increment,
                     auto_create=True,
                 )
-            return self._tables.get(table_name)
+            table = self._tables.get(table_name)
+            if table._table is None:
+                table._sync_table(())
+            return table
+
 
     def load_table(self, table_name):
         """Load a table.

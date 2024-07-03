@@ -2,7 +2,7 @@ import os
 import unittest
 from datetime import datetime
 from collections import OrderedDict
-from sqlalchemy import TEXT, BIGINT
+from sqlalchemy import TEXT, BIGINT, inspect
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError, ArgumentError
 
 from dataset import connect, chunked
@@ -45,7 +45,9 @@ class DatabaseTestCase(unittest.TestCase):
         if "sqlite" in self.db.engine.dialect.dbapi.__name__:
             return
         table = self.db.create_table("foo_no_id", primary_id=False)
-        assert table.table.exists()
+        # assert table.table.exists()
+        inspector = inspect(self.db.executable)
+        assert "foo_no_id" in inspector.get_table_names()
         assert len(table.table.columns) == 0, table.table.columns
 
     def test_create_table_custom_id1(self):
@@ -83,7 +85,9 @@ class DatabaseTestCase(unittest.TestCase):
     def test_create_table_shorthand1(self):
         pid = "int_id"
         table = self.db.get_table("foo5", pid)
-        assert table.table.exists
+        # assert table.table.exists
+        inspector = inspect(self.db.executable)
+        assert "foo5" in inspector.get_table_names()
         assert len(table.table.columns) == 1, table.table.columns
         assert pid in table.table.c, table.table.c
 
@@ -98,7 +102,10 @@ class DatabaseTestCase(unittest.TestCase):
         table = self.db.get_table(
             "foo6", primary_id=pid, primary_type=self.db.types.string(255)
         )
-        assert table.table.exists
+        assert table.exists
+        # assert table.table.exists
+        inspector = inspect(self.db.executable)
+        assert "foo6" in inspector.get_table_names()
         assert len(table.table.columns) == 1, table.table.columns
         assert pid in table.table.c, table.table.c
 
