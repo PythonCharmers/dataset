@@ -133,15 +133,12 @@ class Database:
 
         No data will be written until the transaction has been committed.
 
-        Returns the NestedTransaction object representing the new transaction.
+        Return the NestedTransaction object representing the new transaction.
         """
         if not hasattr(self.local, "tx"):
             self.local.tx = []
         conn = self.executable
         tx = conn.begin_nested()
-        # Ensure there is no active transaction
-        # if conn.get_transaction():
-        #     conn.commit()
         self.local.tx.append(tx)
         return tx
 
@@ -158,7 +155,7 @@ class Database:
             # more:
             # self._flush_tables()
         else:
-            # EJS: There may be an implicit transaction created by SQLAlchemy's
+            # There may be an implicit transaction created by SQLAlchemy's
             # "autobegin" feature. If so, commit this:
             self.executable.commit()
 
@@ -181,9 +178,9 @@ class Database:
         """End a transaction by committing or rolling back."""
         if error_type is None:
             if hasattr(self.local, 'tx') and self.local.tx and not self.local.tx[-1].is_active:
-                # This nested transaction is inactive. This happens if
-                # it has already been rolled back explicitly already. Just
-                # ignore this.
+                # This nested transaction is inactive. This happens if it has
+                # already been rolled back explicitly. Just ignore this like
+                # SQLAlchemy does.
                 return
             try:
                 self.commit()

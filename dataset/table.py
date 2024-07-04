@@ -116,7 +116,6 @@ class Table:
         Returns the inserted row's primary key.
         """
         row = self._sync_columns(row, ensure, types=types)
-        # res = self.db.executable.execute(self.table.insert(row))
         stmt = self.table.insert().values(row)
         conn = self.db.executable
         with conn.begin_nested():
@@ -178,8 +177,8 @@ class Table:
         # Get columns name list to be used for padding later.
         columns = sync_row.keys()
 
+        conn = self.db.executable
         stmt = self.table.insert()
-
         chunk = []
         for index, row in enumerate(rows):
             chunk.append(row)
@@ -187,9 +186,6 @@ class Table:
             # Insert when chunk_size is fulfilled or this is the last row
             if len(chunk) == chunk_size or index == len(rows) - 1:
                 chunk = pad_chunk_columns(chunk, columns)
-                # self.table.insert().execute(chunk)
-                # self.db.executable.execute(stmt, chunk)
-                conn = self.db.executable
                 with conn.begin_nested():
                     conn.execute(stmt, chunk)
                     chunk = []
@@ -216,9 +212,7 @@ class Table:
         clause = self._args_to_clause(args)
         if not len(row):
             return self.count(clause)
-        # stmt = self.table.update(whereclause=clause, values=row)
         stmt = self.table.update().where(clause).values(row)
-        # rp = self.db.executable.execute(stmt)
         conn = self.db.executable
         with conn.begin_nested():
             rp = conn.execute(stmt)
@@ -239,6 +233,7 @@ class Table:
         """
         keys = ensure_list(keys)
 
+        conn = self.db.executable
         chunk = []
         columns = []
         for index, row in enumerate(rows):
@@ -255,17 +250,11 @@ class Table:
             # Update when chunk_size is fulfilled or this is the last row
             if len(chunk) == chunk_size or index == len(rows) - 1:
                 cl = [self.table.c[k] == bindparam("_%s" % k) for k in keys]
-                # stmt = self.table.update(
-                #     whereclause=and_(True, *cl),
-                #     values={col: bindparam(col, required=False) for col in columns},
-                # )
                 stmt = self.table.update().where(
                     and_(True, *cl)
                 ).values(
                     {col: bindparam(col, required=False) for col in columns}
                 )
-                # self.db.executable.execute(stmt, chunk)
-                conn = self.db.executable
                 with conn.begin_nested():
                     conn.execute(stmt, chunk)
                     chunk = []
@@ -316,7 +305,6 @@ class Table:
             return False
         clause = self._args_to_clause(filters, clauses=clauses)
         stmt = self.table.delete().where(clause)
-        # rp = self.db.executable.execute(stmt)
         conn = self.db.executable
         with conn.begin_nested():
             rp = conn.execute(stmt)
@@ -370,7 +358,6 @@ class Table:
                 for column in columns:
                     if not column.name == self._primary_id:
                         self._table.append_column(column)
-                # self._table.create(self.db.executable, checkfirst=True)
                 conn = self.db.executable
                 with conn.begin_nested():
                     self._table.create(conn, checkfirst=True)
@@ -550,7 +537,6 @@ class Table:
         with self.db.lock:
             if self.exists:
                 self._threading_warn()
-                # self.table.drop(self.db.executable, checkfirst=True)
                 conn = self.db.executable
                 with conn.begin_nested():
                     self.table.drop(conn, checkfirst=True)
@@ -614,7 +600,6 @@ class Table:
                 kw["mysql_length"] = mysql_length
 
                 idx = Index(name, *columns, **kw)
-                # idx.create(self.db.executable)
                 conn = self.db.executable
                 with conn.begin_nested():
                     idx.create(conn)
@@ -662,7 +647,6 @@ class Table:
 
         order_by = self._args_to_order_by(order_by)
         args = self._args_to_clause(kwargs, clauses=_clauses)
-        # query = self.table.select(whereclause=args, limit=_limit, offset=_offset)
         query = self.table.select().where(args).limit(_limit).offset(_offset)
         if len(order_by):
             query = query.order_by(*order_by)
@@ -706,8 +690,6 @@ class Table:
             return 0
 
         args = self._args_to_clause(kwargs, clauses=_clauses)
-        # query = select([func.count()], whereclause=args)
-        # query = query.select_from(self.table)
         query = select(func.count()).select_from(self.table).where(args)
         conn = self.db.executable
         with conn.begin_nested():
@@ -746,12 +728,6 @@ class Table:
         if not len(columns):
             return iter([])
 
-        # q = expression.select(
-        #     columns,
-        #     distinct=True,
-        #     whereclause=clause,
-        #     order_by=[c.asc() for c in columns],
-        # )
         q = select(*columns).distinct().where(clause).order_by(*(c.asc() for c in columns))
         return self.db.query(q)
 
