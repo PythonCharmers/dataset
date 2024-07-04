@@ -36,9 +36,9 @@ def connect(
         db = dataset.connect('sqlite:///factbook.db')
 
     One of the main features of `dataset` is to automatically create tables and
-    columns as data is inserted. This behaviour can optionally be disabled via
-    the `ensure_schema` argument. It can also be overridden in a lot of the
-    data manipulation methods using the `ensure` flag.
+    columns as data is inserted. This behaviour can optionally be disabled by
+    setting the `ensure_schema` argument to False. It can also be overridden in
+    a lot of the data manipulation methods using passing `ensure=False`.
 
     If you want to run custom SQLite pragmas on database connect, you can add them
     to on_connect_statements as a set of strings. You can view a full
