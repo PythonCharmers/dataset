@@ -45,6 +45,7 @@ class DatabaseTestCase(unittest.TestCase):
         if "sqlite" in self.db.engine.dialect.dbapi.__name__:
             return
         table = self.db.create_table("foo_no_id", primary_id=False)
+        # This isn't supported on SQLAlchemy 2.0.x:
         # assert table.table.exists()
         inspector = inspect(self.db.executable)
         assert "foo_no_id" in inspector.get_table_names()
@@ -85,6 +86,7 @@ class DatabaseTestCase(unittest.TestCase):
     def test_create_table_shorthand1(self):
         pid = "int_id"
         table = self.db.get_table("foo5", pid)
+        # This isn't supported on SQLAlchemy 2.0.x:
         # assert table.table.exists
         inspector = inspect(self.db.executable)
         assert "foo5" in inspector.get_table_names()
@@ -103,6 +105,7 @@ class DatabaseTestCase(unittest.TestCase):
             "foo6", primary_id=pid, primary_type=self.db.types.string(255)
         )
         assert table.exists
+        # This isn't supported on SQLAlchemy 2.0.x:
         # assert table.table.exists
         inspector = inspect(self.db.executable)
         assert "foo6" in inspector.get_table_names()
@@ -115,8 +118,8 @@ class DatabaseTestCase(unittest.TestCase):
     def test_with(self):
         init_length = len(self.db["weather"])
         with self.assertRaises(ValueError):
-            with self.db as tx:
-                self.db["weather"].insert(
+            with self.db as db:
+                db["weather"].insert(
                     {
                         "date": datetime(2011, 1, 1),
                         "temperature": 1,
