@@ -3,6 +3,7 @@
 *The changelog has only been started with version 0.3.12, previous
 changes must be reconstructed from revision history.*
 
+* 2.0.0: Add support for SQLAlchemy 2.0.x
 * 1.2.0: Add support for views, multiple comparison operators.
   Remove support for Python 2.
 * 1.1.0: Introduce `types` system to shortcut for SQLA types.

@@ -45,7 +45,7 @@ copyright = u"2013-2021, Friedrich Lindenberg, Gregor Aisch, Stefan Wehrmeyer"
 # built documents.
 #
 # The short X.Y version.
-version = "1.6.2"
+version = "2.0.0"
 # The full version, including alpha/beta/rc tags.
 release = "1.6.2"
 
