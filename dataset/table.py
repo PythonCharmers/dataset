@@ -50,10 +50,6 @@ class Table:
         self._auto_create = auto_create
 
     @property
-    def conn(self):
-        return self.db.executable
-
-    @property
     def exists(self):
         """Check to see if the table currently exists in the database."""
         if self._table is not None:
