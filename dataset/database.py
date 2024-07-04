@@ -272,7 +272,7 @@ class Database:
     def load_table(self, table_name):
         """Load a table.
 
-        This will fail if the tables does not already exist in the database. If
+        This will fail if the table does not already exist in the database. If
         the table exists, its columns will be reflected and are available on
         the :py:class:`Table <dataset.Table>` object.
 
@@ -284,8 +284,12 @@ class Database:
         table_name = normalize_table_name(table_name)
         with self.lock:
             if table_name not in self._tables:
-                self._tables[table_name] = Table(self, table_name)
-            return self._tables.get(table_name)
+                table = Table(self, table_name, auto_create=False)
+                if not table.exists:
+                    raise KeyError(f'Table {table_name} does not exist')
+                else:
+                    self._tables[table_name] = table
+            return self._tables[table_name]
 
     def get_table(
         self,
