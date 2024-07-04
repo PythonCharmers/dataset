@@ -7,6 +7,7 @@ from sqlalchemy.sql import text
 from sqlalchemy.schema import MetaData
 from sqlalchemy.util import safe_reraise
 from sqlalchemy import event
+from sqlalchemy.exc import InvalidRequestError
 
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
@@ -19,7 +20,7 @@ from dataset.types import Types
 log = logging.getLogger(__name__)
 
 
-class Database(object):
+class Database:
     """A database object represents a SQL database with multiple tables."""
 
     def __init__(
@@ -124,10 +125,18 @@ class Database(object):
         """Enter a transaction explicitly.
 
         No data will be written until the transaction has been committed.
+
+        Returns the NestedTransaction object representing the new transaction.
         """
         if not hasattr(self.local, "tx"):
             self.local.tx = []
-        self.local.tx.append(self.executable.begin_nested())
+        conn = self.executable
+        tx = conn.begin_nested()
+        # Ensure there is no active transaction
+        # if conn.get_transaction():
+        #     conn.commit()
+        self.local.tx.append(tx)
+        return tx
 
     def commit(self):
         """Commit the current transaction.
@@ -141,10 +150,10 @@ class Database(object):
             # operations in transactions won't cause metadata to refresh any
             # more:
             # self._flush_tables()
-        # else:
-        #     # EJS: There may be an implicit transaction created by SQLAlchemy's
-        #     # "autobegin" feature. If so, commit this:
-        #     self.executable.commit()
+        else:
+            # EJS: There may be an implicit transaction created by SQLAlchemy's
+            # "autobegin" feature. If so, commit this:
+            self.executable.commit()
 
     def rollback(self):
         """Roll back the current transaction.
@@ -164,6 +173,11 @@ class Database(object):
     def __exit__(self, error_type, error_value, traceback):
         """End a transaction by committing or rolling back."""
         if error_type is None:
+            if hasattr(self.local, 'tx') and self.local.tx and not self.local.tx[-1].is_active:
+                # This nested transaction is inactive. This happens if
+                # it has already been rolled back explicitly already. Just
+                # ignore this.
+                return
             try:
                 self.commit()
             except Exception:
@@ -282,7 +296,8 @@ class Database(object):
     ):
         """Load or create a table.
 
-        This is now the same as ``create_table``.
+        This is the same as ``create_table`` if ensure_schema is True.
+        Otherwise it is the same as ``load_table``.
         ::
 
             table = db.get_table('population')
@@ -294,6 +309,13 @@ class Database(object):
         return self.create_table(
             table_name, primary_id, primary_type, primary_increment
         )
+
+    def __iter__(self):
+        """
+        Support iteration through tables yielding table names.
+        """
+        # If we don't implement this, list(self) raises ValueError('Invalid table name: 0') ...
+        yield from self.tables
 
     def __getitem__(self, table_name):
         """Get a given table."""

@@ -116,7 +116,7 @@ class DatabaseTestCase(unittest.TestCase):
         init_length = len(self.db["weather"])
         with self.assertRaises(ValueError):
             with self.db as tx:
-                tx["weather"].insert(
+                self.db["weather"].insert(
                     {
                         "date": datetime(2011, 1, 1),
                         "temperature": 1,
@@ -125,6 +125,19 @@ class DatabaseTestCase(unittest.TestCase):
                 )
                 raise ValueError()
         assert len(self.db["weather"]) == init_length
+
+    def test_nested_with(self):
+        """
+        This code example is on the dataset website here:
+
+        https://dataset.readthedocs.io/en/latest/quickstart.html#using-transactions
+
+        "Nested transactions are supported too."
+        """
+        with self.db as tx1:
+            tx1['user'].insert(dict(name='John Doe', age=46, country='China'))
+            with self.db as tx2:
+                tx2['user'].insert(dict(name='Jane Doe', age=37, country='France', gender='female'))
 
     def test_invalid_values(self):
         if "mysql" in self.db.engine.dialect.dbapi.__name__:

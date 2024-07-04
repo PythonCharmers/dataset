@@ -20,7 +20,7 @@ from dataset.util import normalize_column_name, normalize_column_key
 log = logging.getLogger(__name__)
 
 
-class Table(object):
+class Table:
     """Represents a table in a database and exposes common operations."""
 
     PRIMARY_DEFAULT = "id"
@@ -376,16 +376,18 @@ class Table(object):
                         self._table.append_column(column)
                 # self._table.create(self.db.executable, checkfirst=True)
                 conn = self.db.executable
-                self._table.create(conn, checkfirst=True)
+                with conn.begin_nested():
+                    self._table.create(conn, checkfirst=True)
                 self._columns = None
         elif len(columns):
             with self.db.lock:
                 self._reflect_table()
                 self._threading_warn()
                 conn = self.db.executable
-                for column in columns:
-                    if not self.has_column(column.name):
-                        self.db.op.add_column(self.name, column, schema=self.db.schema)
+                with conn.begin_nested():
+                    for column in columns:
+                        if not self.has_column(column.name):
+                            self.db.op.add_column(self.name, column, schema=self.db.schema)
                 self._reflect_table()
 
     def _sync_columns(self, row, ensure, types=None):
@@ -554,7 +556,8 @@ class Table(object):
                 self._threading_warn()
                 # self.table.drop(self.db.executable, checkfirst=True)
                 conn = self.db.executable
-                self.table.drop(conn, checkfirst=True)
+                with conn.begin_nested():
+                    self.table.drop(conn, checkfirst=True)
                 self._table = None
                 self._columns = None
                 self.db._tables.pop(self.name, None)
@@ -617,7 +620,8 @@ class Table(object):
                 idx = Index(name, *columns, **kw)
                 # idx.create(self.db.executable)
                 conn = self.db.executable
-                idx.create(conn)
+                with conn.begin_nested():
+                    idx.create(conn)
 
 
     def find(self, *_clauses, **kwargs):
