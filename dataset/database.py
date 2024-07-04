@@ -2,7 +2,7 @@ import logging
 import threading
 from urllib.parse import parse_qs, urlparse
 
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, __version__ as sqlalchemy_version
 from sqlalchemy.sql import text
 from sqlalchemy.schema import MetaData
 from sqlalchemy.util import safe_reraise
@@ -36,6 +36,13 @@ class Database:
         """Configure and connect to the database."""
         if engine_kwargs is None:
             engine_kwargs = {}
+
+        # For SQLAlchemy version 1.4, pass the flag future=True when calling
+        # create_engine():
+        version_tuple = tuple(map(int, sqlalchemy_version.split('.')))
+        if version_tuple >= (1, 4, 0) and version_tuple < (2, 0, 0):
+            engine_kwargs = engine_kwargs.copy() | {'future': True}
+        # Note: without future=True, the context manager behaviour is broken.
 
         parsed_url = urlparse(url)
         # if parsed_url.scheme.lower() in 'sqlite':
